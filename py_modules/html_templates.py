@@ -13,16 +13,15 @@ import time
 import asyncio
 import hashlib
 import subprocess
-<<<<<<< HEAD
 import shutil
+import glob
+import re
 import pty
 import uuid
 import signal
 import select
 import errno
 import threading
-=======
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
 from aiohttp import web
 
 # Import decky for logging and event emission
@@ -141,6 +140,9 @@ def _release_transfer_sleep_block():
 
 _terminal_sessions = {}
 _terminal_sessions_lock = threading.Lock()
+_game_art_cache_lock = threading.Lock()
+_game_art_cache = {}
+_GAME_ART_CACHE_TTL_SECONDS = 45.0
 
 
 def _normalize_hash_algo(algo):
@@ -2406,15 +2408,7 @@ async def handle_index(request):
                 overflow: hidden;
             }
             body {
-<<<<<<< HEAD
                 font-family: "Plus Jakarta Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-=======
-<<<<<<< HEAD
-                font-family: "Plus Jakarta Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-=======
-                font-family: "IBM Plex Sans", "Noto Sans", "Ubuntu", "Segoe UI", sans-serif;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 max-width: min(960px, 100%);
                 margin: 0 auto;
                 padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px 16px;
@@ -2422,14 +2416,7 @@ async def handle_index(request):
                 background: transparent;
                 color: var(--text);
                 min-height: 100vh;
-<<<<<<< HEAD
                 line-height: var(--type-body-medium-line-height);
-=======
-<<<<<<< HEAD
-                line-height: var(--type-body-medium-line-height);
-=======
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             }
             body::after {
                 content: "";
@@ -2448,10 +2435,6 @@ async def handle_index(request):
             }
             h1 {
                 color: var(--text);
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 font-size: var(--type-title-large-size);
                 line-height: var(--type-title-large-line-height);
                 font-weight: var(--type-title-large-weight);
@@ -2463,59 +2446,23 @@ async def handle_index(request):
                 margin-top: 0;
                 font-size: var(--type-body-medium-size);
             }
-<<<<<<< HEAD
-=======
-=======
-                font-weight: 700;
-                letter-spacing: 0.5px;
-                margin: 0 0 6px;
-            }
-            p {
-                color: var(--muted);
-                margin-top: 0;
-            }
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             .subtitle {
                 margin-bottom: 0;
             }
             
             /* Tab styles */
             .tab-container {
-<<<<<<< HEAD
                 margin: var(--space-4) 0;
-=======
-<<<<<<< HEAD
-                margin: var(--space-4) 0;
-=======
-                margin: 12px 0;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             }
             .tab-buttons {
                 display: flex;
                 justify-content: center;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 gap: var(--space-1);
                 margin-bottom: var(--space-4);
                 padding: var(--space-1);
                 background: var(--panel);
                 border: 1px solid var(--border);
                 border-radius: var(--shape-large);
-<<<<<<< HEAD
-=======
-=======
-                gap: 6px;
-                margin-bottom: 12px;
-                padding: 6px;
-                background: var(--panel);
-                border: 1px solid var(--border);
-                border-radius: 14px;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 box-shadow: var(--shadow);
                 overflow-x: hidden;
                 overflow-y: hidden;
@@ -2536,10 +2483,6 @@ async def handle_index(request):
                 -webkit-user-select: none;
                 -ms-user-select: none;
             }
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             .tab-button {
                 background: transparent;
                 border: 1px solid transparent;
@@ -2549,27 +2492,10 @@ async def handle_index(request):
                 line-height: var(--type-label-large-line-height);
                 cursor: pointer;
                 transition: all var(--motion-short) ease;
-<<<<<<< HEAD
-=======
-=======
-            .tab-button {
-                background: transparent;
-                border: 1px solid transparent;
-                color: var(--muted);
-                padding: 10px 16px;
-                font-size: 14px;
-                cursor: pointer;
-                transition: all 0.2s ease;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 border-radius: 999px;
                 margin: 0;
                 flex: 0 0 auto;
                 white-space: nowrap;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 font-weight: var(--type-label-large-weight);
             }
             .tab-button.active {
@@ -2582,22 +2508,6 @@ async def handle_index(request):
                 color: var(--text);
                 background-color: rgba(143, 216, 204, 0.12);
             }
-<<<<<<< HEAD
-=======
-=======
-            }
-            .tab-button.active {
-                color: var(--text);
-                background: var(--accent-soft);
-                border-color: rgba(77, 182, 172, 0.45);
-                box-shadow: inset 0 0 0 1px rgba(77, 182, 172, 0.15);
-            }
-            .tab-button:hover {
-                color: var(--text);
-                background-color: rgba(255, 255, 255, 0.06);
-            }
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             
             .tab-panel {
                 display: none;
@@ -2810,46 +2720,19 @@ async def handle_index(request):
             .action-buttons {
                 display: flex;
                 align-items: center;
-<<<<<<< HEAD
                 justify-content: center;
                 gap: var(--space-1);
                 margin: 6px 0;
-=======
-<<<<<<< HEAD
-                justify-content: center;
-                gap: var(--space-1);
-                margin: 6px 0;
-=======
-<<<<<<< HEAD
-                justify-content: center;
-                gap: 8px;
-                margin: 8px 0;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 flex-wrap: nowrap;
                 overflow-x: hidden;
                 overflow-y: hidden;
                 scrollbar-width: none;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 padding: 3px 4px;
                 -webkit-overflow-scrolling: touch;
                 border: 1px solid rgba(255, 255, 255, 0.08);
                 border-radius: var(--shape-medium);
                 background: var(--panel);
                 box-shadow: var(--shadow);
-<<<<<<< HEAD
-=======
-=======
-                padding: 6px;
-                -webkit-overflow-scrolling: touch;
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                border-radius: 12px;
-                background: rgba(255, 255, 255, 0.03);
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             }
             .action-buttons.is-scrollable {
                 justify-content: flex-start;
@@ -2860,40 +2743,12 @@ async def handle_index(request):
             }
             .action-buttons::-webkit-scrollbar-thumb {
                 display: none;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-=======
-                gap: 6px;
-                margin: 10px 0;
-                flex-wrap: nowrap;
-                overflow-x: auto;
-                overflow-y: hidden;
-                scrollbar-width: thin;
-                scrollbar-color: rgba(77, 182, 172, 0.55) transparent;
-                padding: 2px 2px 8px 2px;
-                -webkit-overflow-scrolling: touch;
-            }
-            .action-buttons::-webkit-scrollbar {
-                height: 6px;
-            }
-            .action-buttons::-webkit-scrollbar-thumb {
-                background: rgba(77, 182, 172, 0.5);
-                border-radius: 999px;
->>>>>>> e69c626ae51e58cf11fdabde00d6e48388db3e5c
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             }
             .action-buttons button {
                 background: var(--panel-strong);
                 color: var(--text);
                 border: 1px solid var(--border);
                 box-shadow: none;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 border-radius: var(--shape-medium);
                 padding: 0 10px;
                 font-size: 0.75rem;
@@ -2906,37 +2761,10 @@ async def handle_index(request):
             .action-buttons button:hover {
                 border-color: rgba(143, 216, 204, 0.55);
                 background: rgba(143, 216, 204, 0.12);
-<<<<<<< HEAD
-=======
-=======
-<<<<<<< HEAD
-                border-radius: 10px;
-                padding: 0 12px;
-                font-size: 12px;
-                font-weight: 600;
-                margin: 0;
-                min-height: 34px;
-                line-height: 1;
-=======
-                padding: 7px 12px;
-                font-size: 12px;
-                margin: 0;
-                min-height: 34px;
->>>>>>> e69c626ae51e58cf11fdabde00d6e48388db3e5c
-                flex: 0 0 auto;
-            }
-            .action-buttons button:hover {
-                border-color: rgba(77, 182, 172, 0.5);
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             }
             .action-inline-control {
                 display: inline-flex;
                 align-items: center;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 gap: 6px;
                 background: var(--panel-strong);
                 color: var(--text);
@@ -2948,48 +2776,13 @@ async def handle_index(request):
                 flex: 0 0 auto;
                 min-height: 32px;
             }
-<<<<<<< HEAD
-=======
-=======
-                gap: 8px;
-                background: var(--panel-strong);
-                color: var(--text);
-                border: 1px solid var(--border);
-                border-radius: 10px;
-<<<<<<< HEAD
-                padding: 0 10px;
-=======
-                padding: 5px 8px;
->>>>>>> e69c626ae51e58cf11fdabde00d6e48388db3e5c
-                font-size: 11px;
-                white-space: nowrap;
-                flex: 0 0 auto;
-                min-height: 34px;
-            }
-<<<<<<< HEAD
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             .action-inline-control span {
                 color: var(--muted);
                 font-weight: 600;
             }
-<<<<<<< HEAD
             .action-inline-control input[type="checkbox"] {
                 width: 13px;
                 height: 13px;
-=======
-<<<<<<< HEAD
-            .action-inline-control input[type="checkbox"] {
-                width: 13px;
-                height: 13px;
-=======
-=======
->>>>>>> e69c626ae51e58cf11fdabde00d6e48388db3e5c
-            .action-inline-control input[type="checkbox"] {
-                width: 14px;
-                height: 14px;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 margin: 0;
                 accent-color: var(--accent);
             }
@@ -2997,46 +2790,17 @@ async def handle_index(request):
                 background: var(--bg-elev);
                 color: var(--text);
                 border: 1px solid var(--border);
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 border-radius: var(--shape-small);
                 padding: 2px var(--space-2);
                 font-size: 0.75rem;
                 min-height: 24px;
                 max-width: 130px;
-<<<<<<< HEAD
-=======
-=======
-                border-radius: 8px;
-                padding: 3px 6px;
-                font-size: 11px;
-<<<<<<< HEAD
-                min-height: 26px;
-                max-width: 138px;
-=======
-                max-width: 152px;
->>>>>>> e69c626ae51e58cf11fdabde00d6e48388db3e5c
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             }
             .action-buttons,
             .action-buttons * {
                 user-select: none;
                 -webkit-user-select: none;
                 -ms-user-select: none;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-            }
-            .file-list-container {
-                border: 1px solid var(--border);
-                border-radius: 12px;
-                background-color: var(--panel);
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             }
             .file-list-container {
                 border: 1px solid var(--border);
@@ -3079,10 +2843,6 @@ async def handle_index(request):
                 margin-top: 8px;
                 text-align: right;
             }
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             .upload-path-current {
                 font-size: var(--type-body-medium-size);
                 color: var(--muted);
@@ -3116,60 +2876,12 @@ async def handle_index(request):
                 gap: var(--space-3);
                 justify-content: flex-end;
                 margin-top: var(--space-4);
-<<<<<<< HEAD
-=======
-=======
-            .upload-path-current {
-                font-size: 12px;
-                color: var(--muted);
-                margin-bottom: 10px;
-                word-break: break-all;
-            }
-            .upload-path-list {
-                border: 1px solid var(--border);
-                border-radius: 10px;
-                background: var(--panel);
-                max-height: 260px;
-                overflow-y: auto;
-                padding: 6px;
-                text-align: left;
-            }
-            .upload-path-item {
-                padding: 8px 10px;
-                border-radius: 8px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                color: var(--text);
-                transition: background-color 0.15s ease;
-            }
-            .upload-path-item:hover {
-                background: rgba(77, 182, 172, 0.12);
-            }
-            .upload-path-actions {
-                display: flex;
-                gap: 10px;
-                justify-content: flex-end;
-                margin-top: 14px;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 flex-wrap: wrap;
             }
             .media-toolbar {
                 display: flex;
-<<<<<<< HEAD
                 gap: var(--space-2);
                 margin: var(--space-3) 0 var(--space-2) 0;
-=======
-<<<<<<< HEAD
-                gap: var(--space-2);
-                margin: var(--space-3) 0 var(--space-2) 0;
-=======
-                gap: 8px;
-                margin: 10px 0 8px 0;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 flex-wrap: wrap;
                 justify-content: center;
             }
@@ -3181,10 +2893,6 @@ async def handle_index(request):
                 box-shadow: none;
             }
             #media-download-btn {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 background: var(--accent);
                 color: var(--on-accent);
                 border: 1px solid transparent;
@@ -3195,34 +2903,11 @@ async def handle_index(request):
                 font-size: var(--type-body-medium-size);
                 color: var(--muted);
                 margin: 0 0 var(--space-3) 0;
-<<<<<<< HEAD
-=======
-=======
-                background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
-                color: #0c1416;
-                border: 1px solid rgba(0, 0, 0, 0.1);
-                box-shadow: 0 8px 18px rgba(47, 166, 154, 0.25);
-            }
-            .media-summary {
-                text-align: left;
-                font-size: 12px;
-                color: var(--muted);
-                margin: 0 0 10px 0;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             }
             .media-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-<<<<<<< HEAD
                 gap: var(--space-3);
-=======
-<<<<<<< HEAD
-                gap: var(--space-3);
-=======
-                gap: 10px;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 text-align: left;
                 max-height: min(62vh, 520px);
                 overflow-y: auto;
@@ -3232,41 +2917,18 @@ async def handle_index(request):
             .media-card {
                 background: var(--panel);
                 border: 1px solid var(--border);
-<<<<<<< HEAD
                 border-radius: var(--shape-medium);
-=======
-<<<<<<< HEAD
-                border-radius: var(--shape-medium);
-=======
-                border-radius: 10px;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 overflow: hidden;
                 cursor: pointer;
                 transition: border-color 0.15s ease, box-shadow 0.15s ease;
             }
             .media-card:hover {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 border-color: rgba(143, 216, 204, 0.6);
                 box-shadow: 0 0 0 1px rgba(143, 216, 204, 0.28);
             }
             .media-card.selected {
                 border-color: var(--accent);
                 box-shadow: 0 0 0 1px rgba(143, 216, 204, 0.35), inset 0 0 0 1px rgba(143, 216, 204, 0.25);
-<<<<<<< HEAD
-=======
-=======
-                border-color: rgba(77, 182, 172, 0.6);
-                box-shadow: 0 0 0 1px rgba(77, 182, 172, 0.25);
-            }
-            .media-card.selected {
-                border-color: var(--accent);
-                box-shadow: 0 0 0 1px rgba(77, 182, 172, 0.35), inset 0 0 0 1px rgba(77, 182, 172, 0.25);
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             }
             .media-card.queued {
                 border-color: rgba(124, 197, 255, 0.8);
@@ -3351,13 +3013,6 @@ async def handle_index(request):
             @media (max-width: 640px) {
                 body {
                     max-width: 100%;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                     padding: calc(env(safe-area-inset-top, 0px) + 10px) 10px 10px;
                 }
                 .subtitle {
@@ -3372,26 +3027,6 @@ async def handle_index(request):
                 .tab-button {
                     padding: 7px 11px;
                     font-size: 12px;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-=======
-                    padding: 16px;
-                }
-                .subtitle {
-                    display: none;
-                }
-                .tab-buttons {
-                    flex-wrap: wrap;
-                    border-radius: 18px;
-                }
-                .tab-button {
-                    padding: 8px 12px;
-                    font-size: 13px;
->>>>>>> e69c626ae51e58cf11fdabde00d6e48388db3e5c
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 }
                 .media-grid {
                     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3420,10 +3055,6 @@ async def handle_index(request):
                     gap: 8px;
                 }
                 .action-buttons {
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                     gap: 5px;
                     margin: 5px 0;
                     padding: 3px;
@@ -3432,39 +3063,11 @@ async def handle_index(request):
                     padding: 0 8px;
                     font-size: 11px;
                     min-height: 30px;
-<<<<<<< HEAD
-=======
-=======
-<<<<<<< HEAD
-                    gap: 6px;
-                    margin: 6px 0;
-                    padding: 4px;
-                }
-                .action-buttons button {
-                    padding: 0 9px;
-                    font-size: 11px;
-                    min-height: 30px;
-=======
-                    gap: 5px;
-                    margin: 8px 0;
-                    padding: 2px 2px 6px 2px;
-                }
-                .action-buttons button {
-                    padding: 6px 10px;
-                    font-size: 11px;
-                    min-height: 32px;
->>>>>>> e69c626ae51e58cf11fdabde00d6e48388db3e5c
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 }
                 .action-inline-control {
                     width: auto;
                     justify-content: flex-start;
                     font-size: 10px;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                     min-height: 30px;
                     gap: 5px;
                     padding: 0 7px;
@@ -3473,26 +3076,6 @@ async def handle_index(request):
                     max-width: 104px;
                     font-size: 10px;
                     padding: 1px 4px;
-<<<<<<< HEAD
-=======
-=======
-<<<<<<< HEAD
-                    min-height: 30px;
-                    gap: 6px;
-                    padding: 0 8px;
-                }
-                .action-inline-control select {
-                    max-width: 110px;
-=======
-                    min-height: 32px;
-                }
-                .action-inline-control select {
-                    max-width: 130px;
->>>>>>> e69c626ae51e58cf11fdabde00d6e48388db3e5c
-                    font-size: 10px;
-                    padding: 2px 5px;
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 }
             }
         </style>
@@ -3722,18 +3305,8 @@ async def handle_index(request):
             const I18N = {
                 'zh-CN': {
                     title: {
-<<<<<<< HEAD
                         fileManager: 'Friendeck 文件管理器',
                         upload: 'Friendeck 文件上传'
-=======
-<<<<<<< HEAD
-                        fileManager: 'Friendeck 文件管理器',
-                        upload: 'Friendeck 文件上传'
-=======
-                        fileManager: 'decky-send 文件管理器',
-                        upload: 'decky-send 文件上传'
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                     },
                     subtitle: '将文件或文本上传到 Steam Deck',
                     tabs: {
@@ -3836,18 +3409,8 @@ async def handle_index(request):
                 },
                 'en-US': {
                     title: {
-<<<<<<< HEAD
                         fileManager: 'Friendeck File Manager',
                         upload: 'Friendeck File Transfer'
-=======
-<<<<<<< HEAD
-                        fileManager: 'Friendeck File Manager',
-                        upload: 'Friendeck File Transfer'
-=======
-                        fileManager: 'decky-send File Manager',
-                        upload: 'decky-send File Transfer'
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                     },
                     subtitle: 'Upload files or text to Steam Deck',
                     tabs: {
@@ -4149,18 +3712,7 @@ async def handle_index(request):
                             ensureMediaLoaded();
                         }
                     }
-<<<<<<< HEAD
                     updateTopRailModes();
-=======
-<<<<<<< HEAD
-                    updateTopRailModes();
-=======
-<<<<<<< HEAD
-                    updateTopRailModes();
-=======
->>>>>>> e69c626ae51e58cf11fdabde00d6e48388db3e5c
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
                 };
                 
                 tabButtons.forEach(button => {
@@ -4250,10 +3802,6 @@ async def handle_index(request):
             let mediaObserver = null;
             let uploadPromptEnabled = false;
             let defaultUploadDir = '';
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             const uploadPathModal = document.getElementById('upload-path-modal');
             const uploadPathCurrent = document.getElementById('upload-path-current');
             const uploadPathList = document.getElementById('upload-path-list');
@@ -4262,19 +3810,6 @@ async def handle_index(request):
             const uploadPathCancel = document.getElementById('upload-path-cancel');
             let uploadPathResolve = null;
             let uploadPathCurrentValue = '';
-<<<<<<< HEAD
-=======
-=======
-            const uploadPathModal = document.getElementById('upload-path-modal');
-            const uploadPathCurrent = document.getElementById('upload-path-current');
-            const uploadPathList = document.getElementById('upload-path-list');
-            const uploadPathUp = document.getElementById('upload-path-up');
-            const uploadPathOk = document.getElementById('upload-path-ok');
-            const uploadPathCancel = document.getElementById('upload-path-cancel');
-            let uploadPathResolve = null;
-            let uploadPathCurrentValue = '';
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
 
             async function refreshUploadOptions() {
                 try {
@@ -5053,18 +4588,11 @@ function uploadFileSimple(file, chosenPath, fileHash) {
         if (relPath) {
             formData.append('relative_path', relPath);
         }
-<<<<<<< HEAD
         if (fileHash) {
             formData.append('file_hash', fileHash);
             formData.append('hash_algo', HASH_ALGO);
         }
         formData.append('file_size', String(file.size));
-=======
-        if (fileHash) {
-            formData.append('file_hash', fileHash);
-            formData.append('hash_algo', HASH_ALGO);
-        }
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
         formData.append('file', file, file.name || 'upload.bin');
 
         let lastUpdateTime = Date.now();
@@ -5370,15 +4898,7 @@ const textInput = document.getElementById('text-input');
             const refreshBtn = document.getElementById('refresh-btn');
             const pasteBtn = document.getElementById('paste-btn');
             const newFileBtn = document.getElementById('new-file-btn');
-<<<<<<< HEAD
             const newDirBtn = document.getElementById('new-dir-btn');
-=======
-<<<<<<< HEAD
-            const newDirBtn = document.getElementById('new-dir-btn');
-=======
-            const newDirBtn = document.getElementById('new-dir-btn');
->>>>>>> 1cd76c3b78047290c21b4583356660f20db1365f
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
             const newBtn = document.getElementById('new-btn');
             const deleteBtn = document.getElementById('delete-btn');
             const sdcardBtn = document.getElementById('sdcard-btn');
@@ -7541,6 +7061,34 @@ def _safe_read_text(path):
         return ""
 
 
+def _extract_app_id_candidates(raw_blob):
+    if not raw_blob:
+        return []
+    try:
+        text = raw_blob.decode("utf-8", errors="ignore")
+    except Exception:
+        return []
+    if not text:
+        return []
+    normalized = text.replace("\x00", " ")
+    patterns = [
+        r"(?:steamappid|steamgameid|steam_appid|steam_gameid)\D{0,3}(\d{2,10})",
+        r"(?:^|[/?=&:_\-\s])app(?:_|)id(?:=|/|\s)?(\d{2,10})",
+        r"rungameid/(\d{2,10})",
+        r"applaunch\D+(\d{2,10})",
+        r"steam://rungameid/(\d{2,10})",
+    ]
+    results = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, normalized, flags=re.IGNORECASE):
+            raw = match.group(1)
+            if raw and raw.isdigit():
+                value = int(raw)
+                if value > 0:
+                    results.append(value)
+    return results
+
+
 def _collect_battery_info():
     power_root = "/sys/class/power_supply"
     if not os.path.isdir(power_root):
@@ -7602,6 +7150,166 @@ def _iter_steamapps_dirs():
             yield real_path
 
 
+def _iter_librarycache_dirs():
+    home = os.path.expanduser("~")
+    candidates = [
+        os.path.join(home, ".local", "share", "Steam", "appcache", "librarycache"),
+        os.path.join(home, ".steam", "steam", "appcache", "librarycache"),
+        os.path.join(home, ".steam", "root", "appcache", "librarycache"),
+        os.path.join("/home", "deck", ".local", "share", "Steam", "appcache", "librarycache"),
+        os.path.join("/home", "deck", ".steam", "steam", "appcache", "librarycache"),
+        os.path.join("/home", "deck", ".steam", "root", "appcache", "librarycache"),
+    ]
+
+    seen = set()
+    for path in candidates:
+        real_path = os.path.realpath(path)
+        if real_path in seen:
+            continue
+        seen.add(real_path)
+        if os.path.isdir(real_path):
+            yield real_path
+
+
+def _iter_user_grid_dirs():
+    home = os.path.expanduser("~")
+    patterns = [
+        os.path.join(home, ".local", "share", "Steam", "userdata", "*", "config", "grid"),
+        os.path.join(home, ".steam", "steam", "userdata", "*", "config", "grid"),
+        os.path.join(home, ".steam", "root", "userdata", "*", "config", "grid"),
+        os.path.join("/home", "deck", ".local", "share", "Steam", "userdata", "*", "config", "grid"),
+        os.path.join("/home", "deck", ".steam", "steam", "userdata", "*", "config", "grid"),
+        os.path.join("/home", "deck", ".steam", "root", "userdata", "*", "config", "grid"),
+    ]
+
+    seen = set()
+    for pattern in patterns:
+        for path in glob.glob(pattern):
+            real_path = os.path.realpath(path)
+            if real_path in seen:
+                continue
+            seen.add(real_path)
+            if os.path.isdir(real_path):
+                yield real_path
+
+
+def _find_local_game_art_path(app_id):
+    app = str(app_id)
+    preferred_names = {
+        f"{app}_library_hero.jpg",
+        f"{app}_library_hero.png",
+        f"{app}_library_hero_blur.jpg",
+        f"{app}_library_hero_blur.png",
+        f"{app}_hero.jpg",
+        f"{app}_hero.png",
+        f"{app}_header.jpg",
+        f"{app}_header.png",
+        f"{app}_capsule_616x353.jpg",
+        f"{app}_capsule_616x353.png",
+        f"{app}.jpg",
+        f"{app}.png",
+        f"{app}.jpeg",
+        f"{app}.webp",
+        f"{app}_library_600x900.jpg",
+        f"{app}_library_600x900.png",
+        f"{app}_library_600x900_2x.jpg",
+        f"{app}_library_600x900_2x.png",
+        f"{app}p.jpg",
+        f"{app}p.png",
+    }
+
+    def _score_art_name(name_lower):
+        if name_lower.startswith(f"{app}_library_hero"):
+            return 120
+        if name_lower.startswith(f"{app}_hero"):
+            return 110
+        if name_lower.startswith(f"{app}_header"):
+            return 100
+        if "capsule_616x353" in name_lower:
+            return 90
+        if name_lower.startswith(f"{app}_capsule"):
+            return 80
+        if name_lower in {f"{app}.jpg", f"{app}.png", f"{app}.jpeg", f"{app}.webp"}:
+            return 70
+        if name_lower.startswith(f"{app}p"):
+            return 60
+        return 10
+
+    def _pick_from_dir(root):
+        try:
+            entries = os.listdir(root)
+        except Exception:
+            return ""
+        if not entries:
+            return ""
+
+        by_lower = {}
+        for name in entries:
+            full = os.path.join(root, name)
+            if os.path.isfile(full):
+                by_lower[name.lower()] = name
+
+        for preferred in sorted(preferred_names):
+            actual = by_lower.get(preferred.lower())
+            if actual:
+                return os.path.join(root, actual)
+
+        candidates = []
+        for lower_name, actual_name in by_lower.items():
+            if not lower_name.startswith(app):
+                continue
+            if not lower_name.endswith((".jpg", ".jpeg", ".png", ".webp")):
+                continue
+            score = _score_art_name(lower_name)
+            candidates.append((score, len(lower_name), actual_name))
+        if not candidates:
+            return ""
+        candidates.sort(key=lambda x: (-x[0], x[1], x[2]))
+        return os.path.join(root, candidates[0][2])
+
+    for root in _iter_librarycache_dirs():
+        picked = _pick_from_dir(root)
+        if picked:
+            return picked
+
+    for root in _iter_user_grid_dirs():
+        picked = _pick_from_dir(root)
+        if picked:
+            return picked
+
+    return ""
+
+
+def _resolve_local_game_art_path(app_id):
+    now = time.time()
+    with _game_art_cache_lock:
+        cached = _game_art_cache.get(app_id)
+        if cached and (now - cached.get("time", 0.0)) < _GAME_ART_CACHE_TTL_SECONDS:
+            return cached.get("path", "")
+
+    path = _find_local_game_art_path(app_id)
+    with _game_art_cache_lock:
+        _game_art_cache[app_id] = {"path": path, "time": now}
+        if len(_game_art_cache) > 256:
+            oldest_key = min(
+                _game_art_cache.items(),
+                key=lambda kv: kv[1].get("time", 0.0),
+            )[0]
+            _game_art_cache.pop(oldest_key, None)
+    return path
+
+
+def _game_art_cdn_urls(app_id):
+    aid = int(app_id)
+    return [
+        f"https://cdn.cloudflare.steamstatic.com/steam/apps/{aid}/header.jpg",
+        f"https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/{aid}/header.jpg",
+        f"https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/{aid}/capsule_616x353.jpg",
+        f"https://cdn.akamai.steamstatic.com/steam/apps/{aid}/header.jpg",
+        f"https://shared.akamai.steamstatic.com/steam/apps/{aid}/header.jpg",
+    ]
+
+
 def _read_manifest_name(app_id):
     target = f"appmanifest_{app_id}.acf"
     for steamapps_dir in _iter_steamapps_dirs():
@@ -7627,39 +7335,69 @@ def _collect_running_game():
     if not os.path.isdir(proc_root):
         return {"running": False, "app_id": None, "name": ""}
 
-    # Filter obvious non-game IDs seen in Steam client helper processes.
+    # App IDs commonly observed from helper/client processes.
     app_id_blacklist = {7, 10, 20, 40, 240, 250, 769}
-    app_id_hits = {}
+    app_scores = {}
 
     for entry in os.listdir(proc_root):
         if not entry.isdigit():
             continue
         environ_path = os.path.join(proc_root, entry, "environ")
+        cmdline_path = os.path.join(proc_root, entry, "cmdline")
+        environ_payload = b""
+        cmdline_payload = b""
         try:
             with open(environ_path, "rb") as f:
-                payload = f.read()
+                environ_payload = f.read()
         except Exception:
-            continue
-        if not payload:
+            environ_payload = b""
+        try:
+            with open(cmdline_path, "rb") as f:
+                cmdline_payload = f.read()
+        except Exception:
+            cmdline_payload = b""
+        if not environ_payload and not cmdline_payload:
             continue
 
-        app_id = None
-        for item in payload.split(b"\x00"):
+        process_scores = {}
+
+        for item in environ_payload.split(b"\x00"):
+            if not item:
+                continue
             if item.startswith(b"SteamAppId=") or item.startswith(b"SteamGameId="):
                 raw_value = item.split(b"=", 1)[1].decode("utf-8", errors="ignore").strip()
                 if raw_value.isdigit():
                     parsed = int(raw_value)
                     if parsed > 0:
-                        app_id = parsed
-                        break
-        if not app_id or app_id in app_id_blacklist:
-            continue
-        app_id_hits[app_id] = app_id_hits.get(app_id, 0) + 1
+                        process_scores[parsed] = max(process_scores.get(parsed, 0), 8.0)
+            if item.startswith(b"STEAM_COMPAT_APP_ID="):
+                raw_value = item.split(b"=", 1)[1].decode("utf-8", errors="ignore").strip()
+                if raw_value.isdigit():
+                    parsed = int(raw_value)
+                    if parsed > 0:
+                        process_scores[parsed] = max(process_scores.get(parsed, 0), 7.0)
 
-    if not app_id_hits:
+        for candidate in _extract_app_id_candidates(environ_payload):
+            process_scores[candidate] = max(process_scores.get(candidate, 0), 4.0)
+
+        for candidate in _extract_app_id_candidates(cmdline_payload):
+            process_scores[candidate] = max(process_scores.get(candidate, 0), 3.0)
+
+        for app_id, score in process_scores.items():
+            final_score = score * (0.35 if app_id in app_id_blacklist else 1.0)
+            app_scores[app_id] = app_scores.get(app_id, 0.0) + final_score
+
+    if not app_scores:
         return {"running": False, "app_id": None, "name": ""}
 
-    app_id = max(app_id_hits.items(), key=lambda kv: kv[1])[0]
+    non_blacklisted = {k: v for k, v in app_scores.items() if k not in app_id_blacklist}
+    if non_blacklisted:
+        app_id = max(non_blacklisted.items(), key=lambda kv: kv[1])[0]
+    else:
+        app_id, score = max(app_scores.items(), key=lambda kv: kv[1])
+        if app_id in app_id_blacklist and score < 4.0:
+            return {"running": False, "app_id": None, "name": ""}
+
     game_name = _read_manifest_name(app_id) or f"AppID {app_id}"
     return {"running": True, "app_id": app_id, "name": game_name}
 
@@ -7706,7 +7444,6 @@ def _request_suspend():
     return False, last_error or "Suspend command unavailable"
 
 
-<<<<<<< HEAD
 def _run_terminal_command(command, timeout_seconds=20):
     cmd = (command or "").strip()
     if not cmd:
@@ -7975,8 +7712,6 @@ def _stop_terminal_session(session_id):
     return True
 
 
-=======
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
 async def _deferred_stop_server(plugin):
     await asyncio.sleep(0.2)
     try:
@@ -7992,6 +7727,64 @@ async def handle_system_overview(request, plugin):
         return web.json_response(payload)
     except Exception as e:
         decky.logger.error(f"System overview error: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
+async def handle_system_game_art(request, plugin):
+    """Serve local Steam game artwork by app_id with CDN fallback handled by clients."""
+    try:
+        debug = (request.query.get("debug") or "").strip() == "1"
+        raw = (request.query.get("app_id") or request.query.get("appid") or "").strip()
+        app_id = 0
+        game_name = ""
+        if raw and raw.isdigit():
+            app_id = int(raw)
+        if app_id <= 0:
+            game = await asyncio.to_thread(_collect_running_game)
+            app_id = int(game.get("app_id") or 0)
+            game_name = str(game.get("name") or "")
+        if app_id <= 0:
+            if debug:
+                return web.json_response(
+                    {
+                        "status": "miss",
+                        "reason": "no_app_id",
+                        "app_id": None,
+                        "game_name": game_name,
+                        "local_path": "",
+                        "cdn_fallback": [],
+                    },
+                    status=404,
+                )
+            return web.Response(status=404, text="Not found")
+
+        art_path = await asyncio.to_thread(_resolve_local_game_art_path, app_id)
+        if not art_path or not os.path.isfile(art_path):
+            cdn_urls = _game_art_cdn_urls(app_id)
+            if debug:
+                return web.json_response(
+                    {
+                        "status": "miss",
+                        "reason": "local_not_found",
+                        "app_id": app_id,
+                        "game_name": game_name,
+                        "local_path": art_path or "",
+                        "cdn_fallback": cdn_urls,
+                    },
+                    status=404,
+                )
+            raise web.HTTPFound(cdn_urls[0])
+
+        response = web.FileResponse(art_path)
+        response.headers["Cache-Control"] = "public, max-age=120"
+        if debug:
+            response.headers["X-Game-Art-Path"] = art_path
+            response.headers["X-Game-App-Id"] = str(app_id)
+        return response
+    except Exception as e:
+        if isinstance(e, web.HTTPException):
+            raise
+        decky.logger.error(f"System game art error: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 
@@ -8030,7 +7823,6 @@ async def handle_system_control(request, plugin):
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 
-<<<<<<< HEAD
 async def handle_terminal_exec(request, plugin):
     """Execute a terminal command on Steam Deck and return stdout/stderr."""
     try:
@@ -8133,8 +7925,6 @@ async def handle_terminal_stop(request, plugin):
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 
-=======
->>>>>>> a644f870110fc23700a2b5ac7bc22c0ea9171992
 async def handle_text_upload(request, plugin):
     """Handle text upload request
     

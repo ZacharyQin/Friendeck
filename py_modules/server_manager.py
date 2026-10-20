@@ -825,9 +825,9 @@ def setup_main_server_routes(app, plugin):
         app: aiohttp web.Application instance
         plugin: Plugin instance for accessing handlers
     """
-    # Main page (doesn't need plugin)
-    app.router.add_get('/', html_templates.handle_index)
-    app.router.add_get('/file-manager', html_templates.handle_file_manager_index)
+    # Main page / remote UI (served from packaged Flutter web bundle)
+    app.router.add_get('/', lambda request: html_templates.handle_remote_web_index(request, plugin))
+    app.router.add_get('/file-manager', lambda request: html_templates.handle_remote_web_file_manager_index(request, plugin))
     
     # Upload endpoints (need plugin for paths)
     app.router.add_post('/upload', lambda request: html_templates.handle_upload(request, plugin))
@@ -835,6 +835,8 @@ def setup_main_server_routes(app, plugin):
     app.router.add_post('/upload-status', lambda request: html_templates.handle_upload_status(request, plugin))
     app.router.add_post('/upload-text', lambda request: html_templates.handle_text_upload(request, plugin))
     app.router.add_get('/api/settings/upload-options', lambda request: html_templates.handle_upload_options(request, plugin))
+    app.router.add_post('/api/debug/ingest-log', lambda request: html_templates.handle_debug_ingest_log(request, plugin))
+    app.router.add_get('/api/debug/ingest-log', lambda request: html_templates.handle_debug_ingest_log(request, plugin))
     
     # File management routes
     app.router.add_post('/api/files/list', file_operations.get_file_list)
@@ -860,6 +862,9 @@ def setup_main_server_routes(app, plugin):
     app.router.add_get('/api/media/list', file_operations.get_media_list)
     app.router.add_get('/api/media/preview', file_operations.get_media_preview)
     app.router.add_get('/api/settings/language', lambda request: html_templates.handle_language_settings(request, plugin))
+
+    # Flutter Web static assets + SPA fallback for non-API paths.
+    app.router.add_get('/{path:.*}', lambda request: html_templates.handle_remote_web_static(request, plugin))
     
     # Add OPTIONS handler for CORS preflight
     app.router.add_route('OPTIONS', '/{path:.*}', lambda r: web.Response())

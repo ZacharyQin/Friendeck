@@ -22,6 +22,8 @@ import signal
 import select
 import errno
 import threading
+from collections import deque
+from pathlib import Path
 from aiohttp import web
 
 # Import decky for logging and event emission
@@ -39,6 +41,17 @@ def _get_upload_session_store(plugin):
         lock = asyncio.Lock()
         setattr(plugin, "_upload_sessions_lock", lock)
     return sessions, lock
+
+
+_DEBUG_INGEST_LOG_LIMIT = 400
+
+
+def _get_debug_ingest_log_store(plugin):
+    logs = getattr(plugin, "_debug_ingest_logs", None)
+    if logs is None:
+        logs = deque(maxlen=_DEBUG_INGEST_LOG_LIMIT)
+        setattr(plugin, "_debug_ingest_logs", logs)
+    return logs
 
 
 _transfer_sleep_lock = threading.Lock()
@@ -188,6 +201,350 @@ async def _emit_decky(plugin, event, payload):
         await decky.emit(event, payload)
     except Exception as emit_error:
         decky.logger.error(f"Decky emit failed ({event}): {emit_error}")
+
+
+_REMOTE_WEB_BUNDLE_DIRNAME = "remote_web_ui"
+_REMOTE_WEB_ENTRYPOINT = "index.html"
+_REMOTE_WEB_REQUIRED_ITEMS = (
+    "index.html",
+    "main.dart.js",
+    "flutter.js",
+    "flutter_bootstrap.js",
+    "flutter_service_worker.js",
+    "assets",
+    "canvaskit",
+    "icons",
+)
+_REMOTE_WEB_RESERVED_EXACT = {"api", "upload", "upload-chunk", "upload-status", "upload-text", "transfer", "transfer/"}
+_REMOTE_WEB_RESERVED_PREFIXES = ("api/",)
+_REMOTE_WEB_STATIC_PREFIXES = ("assets/", "canvaskit/", "icons/")
+_REMOTE_WEB_NO_STORE_CACHE_CONTROL = "no-store, no-cache, must-revalidate, max-age=0"
+
+
+def _get_remote_web_cache_token(plugin=None, bundle_root: Path | None = None) -> str:
+    """Return a per-process cache token to bust stale browser/SW cache."""
+    if plugin is None:
+        return f"{int(time.time())}-{os.getpid()}"
+
+    root_key = str(bundle_root) if bundle_root else ""
+    cached_token = getattr(plugin, "_remote_web_cache_token", None)
+    cached_root = getattr(plugin, "_remote_web_cache_root", None)
+    if cached_token and cached_root == root_key:
+        return str(cached_token)
+
+    token = f"{int(time.time())}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+    try:
+        setattr(plugin, "_remote_web_cache_token", token)
+        setattr(plugin, "_remote_web_cache_root", root_key)
+    except Exception:
+        pass
+    return token
+
+
+def _set_remote_web_no_store_headers(response: web.StreamResponse) -> None:
+    response.headers["Cache-Control"] = _REMOTE_WEB_NO_STORE_CACHE_CONTROL
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+
+
+def _read_remote_web_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _build_remote_web_cache_guard_script(cache_token: str) -> str:
+    return (
+        "<script>"
+        "(function(){"
+        f"const token={repr(cache_token)};"
+        "const marker='__friendeck_cache_guard_token__';"
+        "let markerMatched=false;"
+        "try{markerMatched=sessionStorage.getItem(marker)===token;}catch(_e){}"
+        "if(markerMatched){return;}"
+        "try{sessionStorage.setItem(marker,token);}catch(_e){}"
+        "let alreadyReloaded=false;"
+        "try{alreadyReloaded=(new URL(window.location.href)).searchParams.get('__fd_cache_token')===token;}catch(_e){}"
+        "const purge=async()=>{"
+        "try{if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();"
+        "for(const reg of regs){try{await reg.unregister();}catch(_e){}}}}catch(_e){}"
+        "try{if(window.caches&&caches.keys){const keys=await caches.keys();"
+        "for(const key of keys){try{await caches.delete(key);}catch(_e){}}}}catch(_e){}"
+        "};"
+        "const run=()=>{purge().catch(()=>{}).finally(()=>{"
+        "if(alreadyReloaded){return;}"
+        "try{const u=new URL(window.location.href);u.searchParams.set('__fd_cache_token',token);window.location.replace(u.toString());}"
+        "catch(_e){window.location.reload();}"
+        "});};"
+        "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',run,{once:true});}else{run();}"
+        "})();"
+        "</script>"
+    )
+
+
+def _render_remote_web_index(path: Path, cache_token: str) -> str:
+    html = _read_remote_web_text(path)
+    guard = _build_remote_web_cache_guard_script(cache_token)
+    drag_bridge_tag = f'<script src="drag_to_transfer_bridge.js?v={cache_token}"></script>'
+    bootstrap_tag = f'<script src="flutter_bootstrap.js?v={cache_token}" async></script>'
+
+    if "<script src=\"flutter_bootstrap.js\" async></script>" in html:
+        return html.replace("<script src=\"flutter_bootstrap.js\" async></script>", guard + drag_bridge_tag + bootstrap_tag, 1)
+    if "</body>" in html:
+        return html.replace("</body>", guard + drag_bridge_tag + bootstrap_tag + "</body>", 1)
+    return html + guard + drag_bridge_tag + bootstrap_tag
+
+
+def _render_remote_web_bootstrap(path: Path, cache_token: str) -> str:
+    script = _read_remote_web_text(path)
+    # Always load the newest app bundle and skip service worker registration.
+    script = script.replace('"mainJsPath":"main.dart.js"', f'"mainJsPath":"main.dart.js?v={cache_token}"')
+    script = re.sub(
+        r"_flutter\.loader\.load\(\{\s*serviceWorkerSettings:\s*\{\s*serviceWorkerVersion:\s*\"[^\"]*\"\s*\}\s*\}\s*\);",
+        "_flutter.loader.load({});",
+        script,
+        count=1,
+        flags=re.S,
+    )
+    return script
+
+
+def _render_remote_web_service_worker(cache_token: str) -> str:
+    # Keep a lightweight worker that immediately cleans old caches then unregisters itself.
+    return f"""const CACHE_TOKEN = {cache_token!r};
+self.addEventListener('install', (event) => {{
+  event.waitUntil(self.skipWaiting());
+}});
+self.addEventListener('activate', (event) => {{
+  event.waitUntil((async () => {{
+    try {{
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }} catch (_e) {{}}
+    try {{
+      await self.registration.unregister();
+    }} catch (_e) {{}}
+    try {{
+      const clientsList = await self.clients.matchAll({{ type: 'window', includeUncontrolled: true }});
+      for (const client of clientsList) {{
+        const url = new URL(client.url);
+        url.searchParams.set('__fd_cache_token', CACHE_TOKEN);
+        client.navigate(url.toString());
+      }}
+    }} catch (_e) {{}}
+    try {{
+      await self.clients.claim();
+    }} catch (_e) {{}}
+  }})());
+}});
+self.addEventListener('fetch', (event) => {{
+  event.respondWith(fetch(event.request, {{ cache: 'no-store' }}));
+}});
+"""
+
+
+def _is_within_dir(path: Path, root: Path) -> bool:
+    try:
+        return os.path.commonpath([str(path), str(root)]) == str(root)
+    except Exception:
+        return False
+
+
+def _is_valid_remote_web_bundle(path: Path) -> bool:
+    try:
+        if not path or not path.is_dir():
+            return False
+        for entry in _REMOTE_WEB_REQUIRED_ITEMS:
+            if not (path / entry).exists():
+                return False
+        return True
+    except Exception:
+        return False
+
+
+def _candidate_remote_web_dirs() -> list[Path]:
+    candidates: list[Path] = []
+
+    env_path = (os.getenv("FRIENDECK_WEB_BUNDLE_DIR") or "").strip()
+    if env_path:
+        candidates.append(Path(env_path))
+
+    module_root = Path(__file__).resolve().parent.parent
+    candidates.extend(
+        [
+            module_root / _REMOTE_WEB_BUNDLE_DIRNAME,
+            module_root / "defaults" / _REMOTE_WEB_BUNDLE_DIRNAME,
+        ]
+    )
+
+    plugin_root = getattr(decky, "DECKY_PLUGIN_DIR", None)
+    if plugin_root:
+        plugin_root_path = Path(plugin_root)
+        candidates.extend(
+            [
+                plugin_root_path / _REMOTE_WEB_BUNDLE_DIRNAME,
+                plugin_root_path / "defaults" / _REMOTE_WEB_BUNDLE_DIRNAME,
+            ]
+        )
+
+    # Deduplicate while preserving order.
+    deduped: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.expanduser().resolve()
+        except Exception:
+            continue
+        key = str(resolved)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(resolved)
+    return deduped
+
+
+def _resolve_remote_web_bundle_root(plugin=None) -> Path | None:
+    cached = getattr(plugin, "_remote_web_bundle_root", None) if plugin else None
+    if cached:
+        try:
+            cached_path = Path(cached).expanduser().resolve()
+            if _is_valid_remote_web_bundle(cached_path):
+                return cached_path
+        except Exception:
+            pass
+
+    for candidate in _candidate_remote_web_dirs():
+        if _is_valid_remote_web_bundle(candidate):
+            if plugin is not None:
+                try:
+                    setattr(plugin, "_remote_web_bundle_root", str(candidate))
+                except Exception:
+                    pass
+            return candidate
+    return None
+
+
+def _normalize_request_path(path: str) -> str:
+    normalized = (path or "").replace("\\", "/").strip()
+    if normalized.startswith("/"):
+        normalized = normalized.lstrip("/")
+    while "//" in normalized:
+        normalized = normalized.replace("//", "/")
+    return normalized
+
+
+def _is_reserved_backend_path(path: str) -> bool:
+    normalized = _normalize_request_path(path)
+    if not normalized:
+        return False
+    if normalized in _REMOTE_WEB_RESERVED_EXACT:
+        return True
+    return any(normalized.startswith(prefix) for prefix in _REMOTE_WEB_RESERVED_PREFIXES)
+
+
+def _resolve_remote_web_asset(bundle_root: Path, request_path: str) -> Path | None:
+    normalized = _normalize_request_path(request_path)
+    if "\x00" in normalized:
+        return None
+
+    if normalized in ("", "file-manager") or normalized.startswith("file-manager/"):
+        normalized = _REMOTE_WEB_ENTRYPOINT
+
+    target = (bundle_root / normalized).resolve()
+    if not _is_within_dir(target, bundle_root):
+        return None
+    if not target.is_file():
+        return None
+    return target
+
+
+def _should_fallback_to_remote_index(request_path: str) -> bool:
+    normalized = _normalize_request_path(request_path)
+    if normalized in ("", "file-manager") or normalized.startswith("file-manager/"):
+        return True
+    if _is_reserved_backend_path(normalized):
+        return False
+    if any(normalized.startswith(prefix) for prefix in _REMOTE_WEB_STATIC_PREFIXES):
+        return False
+    basename = os.path.basename(normalized)
+    if "." in basename:
+        return False
+    return True
+
+
+def _remote_web_unavailable_response() -> web.Response:
+    return web.Response(
+        status=503,
+        text="Remote web UI bundle is missing. Please sync Flutter web artifacts.",
+        content_type="text/plain",
+    )
+
+
+def _build_remote_web_file_response(path: Path, plugin=None, bundle_root: Path | None = None) -> web.StreamResponse:
+    cache_token = _get_remote_web_cache_token(plugin, bundle_root or path.parent)
+    lower_name = path.name.lower()
+
+    if lower_name == "index.html":
+        response = web.Response(text=_render_remote_web_index(path, cache_token), content_type="text/html")
+        _set_remote_web_no_store_headers(response)
+        return response
+
+    if lower_name == "flutter_bootstrap.js":
+        response = web.Response(text=_render_remote_web_bootstrap(path, cache_token), content_type="application/javascript")
+        _set_remote_web_no_store_headers(response)
+        return response
+
+    if lower_name == "flutter_service_worker.js":
+        response = web.Response(text=_render_remote_web_service_worker(cache_token), content_type="application/javascript")
+        _set_remote_web_no_store_headers(response)
+        return response
+
+    response = web.FileResponse(path)
+    _set_remote_web_no_store_headers(response)
+    return response
+
+
+async def handle_remote_web_index(request, plugin):
+    """Serve Flutter Web entry page for remote UI."""
+    bundle_root = _resolve_remote_web_bundle_root(plugin)
+    if not bundle_root:
+        decky.logger.error("Remote web UI bundle not found")
+        return _remote_web_unavailable_response()
+
+    index_path = bundle_root / _REMOTE_WEB_ENTRYPOINT
+    if not index_path.is_file():
+        decky.logger.error("Remote web UI entry file missing: %s", index_path)
+        return _remote_web_unavailable_response()
+    return _build_remote_web_file_response(index_path, plugin=plugin, bundle_root=bundle_root)
+
+
+async def handle_remote_web_file_manager_index(request, plugin):
+    """Backwards-compatible alias for /file-manager."""
+    return await handle_remote_web_index(request, plugin)
+
+
+async def handle_remote_web_static(request, plugin):
+    """Serve Flutter Web static assets and SPA fallback routes."""
+    requested_path = request.match_info.get("path", "")
+    if _is_reserved_backend_path(requested_path):
+        raise web.HTTPNotFound()
+
+    bundle_root = _resolve_remote_web_bundle_root(plugin)
+    if not bundle_root:
+        decky.logger.error("Remote web UI bundle not found for path: %s", requested_path)
+        return _remote_web_unavailable_response()
+
+    asset_path = _resolve_remote_web_asset(bundle_root, requested_path)
+    if asset_path:
+        return _build_remote_web_file_response(asset_path, plugin=plugin, bundle_root=bundle_root)
+
+    if _should_fallback_to_remote_index(requested_path):
+        index_path = bundle_root / _REMOTE_WEB_ENTRYPOINT
+        if index_path.is_file():
+            return _build_remote_web_file_response(index_path, plugin=plugin, bundle_root=bundle_root)
+
+    raise web.HTTPNotFound()
 
 
 
@@ -6420,6 +6777,44 @@ async def handle_upload_options(request, plugin):
         })
     except Exception as e:
         decky.logger.error(f"Failed to get upload options: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
+async def handle_debug_ingest_log(request, plugin):
+    """Collect and read lightweight frontend ingest logs for web transfer debugging."""
+    try:
+        logs = _get_debug_ingest_log_store(plugin)
+
+        if request.method == "POST":
+            try:
+                payload = await request.json()
+            except Exception:
+                payload = {}
+
+            if not isinstance(payload, dict):
+                payload = {"value": str(payload)}
+
+            logs.append({
+                "timestamp": int(time.time() * 1000),
+                "remote": request.remote or "",
+                "path": request.path,
+                "payload": payload,
+            })
+            return web.json_response({"status": "success", "count": len(logs)})
+
+        # GET
+        limit_raw = (request.query.get("limit") or "").strip()
+        limit = 100
+        if limit_raw:
+            try:
+                limit = int(limit_raw)
+            except Exception:
+                limit = 100
+        limit = max(1, min(limit, _DEBUG_INGEST_LOG_LIMIT))
+        items = list(logs)[-limit:]
+        return web.json_response({"status": "success", "count": len(items), "logs": items})
+    except Exception as e:
+        decky.logger.error(f"Debug ingest log error: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 

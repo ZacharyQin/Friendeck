@@ -28976,9 +28976,10 @@ aMu:function aMu(a){this.a=a},
 pR:function pR(a,b,c){this.c=a
 this.d=b
 this.a=c},
-LE:function LE(a,b){var _=this
+LE:function LE(a,b,c){var _=this
 _.d=a
 _.e=b
+_.go=c
 _.f=null
 _.y=_.x=_.w=_.r=!1
 _.Q=_.z=null
@@ -102426,6 +102427,8 @@ return A.l(A.bM(o,!1).zn(),$async$on)
 case 17:case 16:case 1:return A.p(q,r)}})
 return A.q($async$on,r)},
 P(a3){var s,r,q,p,o,n,m,l,k,j,i=this,h=null,g="zh",f=A.bc(a3),e=A.M(a3).ax,d=A.bR(a3,B.cW,t.l).w.a.a>=1000,c=f.a,b=B.b.C(c.gH().toLowerCase(),g)?"\u6587\u4ef6\u4f20\u8f93":"File Transfer",a=B.b.C(c.gH().toLowerCase(),g)?"\u6587\u4ef6\u7ba1\u7406":"File Manager",a0=B.b.C(c.gH().toLowerCase(),g)?"\u5a92\u4f53\u7ba1\u7406":"Media Manager",a1=B.b.C(c.gH().toLowerCase(),g)?"\u6587\u672c\u4f20\u8f93":"Text Transfer",a2=A.b([b,a,a0,a1,B.b.C(c.gH().toLowerCase(),g)?"\u7ec8\u7aef\u63a7\u5236":"Terminal Control"],t.s)
+try{v.G.__friendeck_active_tab_index=i.as
+v.G.__friendeck_is_file_manager_tab_active=i.as===1}catch(a4){}
 b=t.G1
 s=A.b([B.Vj,B.VZ,B.Vg,B.Vi,B.W_],b)
 r=A.b([B.ju,B.nA,B.nx,B.nz,B.tH],b)
@@ -102585,7 +102588,7 @@ b=c.a
 if((b==null||B.b.bl(b).length===0)&&c.uri!=null)b=c.uri
 if((b==null||B.b.bl(b).length===0)&&!a4&&c.h!=null){b=A.b1(c.h(0,"uri"))
 if(b==null)b=A.b1(c.h(0,"path"))}
-try{v.G.fetch("/api/debug/ingest-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({stage:"q5_item",idx:e,d_len:d.length,has_c:c!=null,has_h:c!=null&&c.h!=null,has_a:c!=null&&c.a!=null,has_uri:c!=null&&c.uri!=null,has_b:c!=null&&c.b!=null,has_name:c!=null&&c.name!=null,has_bytes:c!=null&&(c.c!=null||c.bytes!=null)})})}catch(a2){}
+try{v.G.fetch("/api/debug/ingest-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({stage:"q5_item",idx:e,d_len:d.length,has_c:c!=null,has_h:c!=null&&c.h!=null,has_a:c!=null&&c.a!=null,has_uri:c!=null&&c.uri!=null,has_b:c!=null&&c.b!=null,has_name:c!=null&&c.name!=null,has_path:b!=null&&B.b.bl(b).length!==0,path_len:B.b.bl(b==null?"":b).length,has_d:c!=null&&c.d!=null,has_rel:c!=null&&c.d!=null&&B.b.bl(c.d).length!==0,rel_len:c!=null&&c.d!=null?B.b.bl(c.d).length:0,has_bytes:c!=null&&(c.c!=null||c.bytes!=null)})})}catch(a2){}
 d=B.b.bl(b==null?"":b)}catch(a2){try{v.G.fetch("/api/debug/ingest-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({stage:"q5_item_error",idx:e,msg:""+a2})})}catch(a3){}
 d=""
 c=null}}if(J.cO(d)!==0){j=n.aoV(d)
@@ -102610,7 +102613,12 @@ if(h==null&&A.hL(f.size))h=f.size}
 if(h==null)h=0
 var a3=c.d
 if((a3==null||B.b.bl(a3).length===0)&&!a4&&c.h!=null)a3=A.b1(c.h(0,"relativePath"))
-l.push(new A.lH(d,B.b.bl(b),f,a3,h))
+if((a3==null||B.b.bl(a3).length===0)&&c.relativePath!=null)a3=A.b1(c.relativePath)
+if((a3==null||B.b.bl(a3).length===0)&&c.path!=null)a3=A.b1(c.path)
+if((a3==null||B.b.bl(a3).length===0)&&c.webkitRelativePath!=null)a3=A.b1(c.webkitRelativePath)
+a3=B.b.bl(a3==null?"":a3)
+if(a3.length!==0)b=a3
+l.push(new A.lH(d,B.b.bl(b),f,a3.length===0?null:a3,h))
 s=4
 break}p=7
 s=10
@@ -102628,6 +102636,12 @@ if(g!=null)b=g}
 if((b==null||B.b.bl(b).length===0)&&!a4&&c.h!=null){g=A.b1(c.h(0,"filename"))
 if(g!=null)b=g}
 if(b==null)b=""
+var a3=c.d
+if((a3==null||B.b.bl(a3).length===0)&&!a4&&c.h!=null)a3=A.b1(c.h(0,"relativePath"))
+if((a3==null||B.b.bl(a3).length===0)&&c.relativePath!=null)a3=A.b1(c.relativePath)
+if((a3==null||B.b.bl(a3).length===0)&&c.path!=null)a3=A.b1(c.path)
+if((a3==null||B.b.bl(a3).length===0)&&c.webkitRelativePath!=null)a3=A.b1(c.webkitRelativePath)
+a3=B.b.bl(a3==null?"":a3)
 h=A.hL(c.e)?c.e:null
 if(h==null&&!a4&&c.h!=null){g=c.h(0,"size")
 if(A.hL(g))h=g
@@ -102638,14 +102652,13 @@ if(A.hL(g))h=g
 if(h==null&&A.hL(f.byteLength))h=f.byteLength
 if(h==null&&A.hL(f.size))h=f.size}
 if(h==null)h=0
+if(a3.length!==0)b=a3
 if(B.b.bl(b).length===0&&f!=null)b="upload_"+A.j(e+1)+".bin"
-j=n.aoV(B.b.bl(b)+"#"+A.j(h))
+j=n.aoV((a3.length===0?B.b.bl(b):a3)+"#"+A.j(h))
 if(B.b.bl(b).length===0||!m.D(0,j)){s=4
 break}i=v.G
 if(f!=null)d=i.URL.createObjectURL(new i.Blob(A.b([f],t.vs),{type:"application/octet-stream"}))
-var a3=c.d
-if((a3==null||B.b.bl(a3).length===0)&&!a4&&c.h!=null)a3=A.b1(c.h(0,"relativePath"))
-l.push(new A.lH(d,B.b.bl(b),f,a3,h))
+l.push(new A.lH(d,B.b.bl(b),f,a3.length===0?null:a3,h))
 s=4
 break
 case 10:if(a1){s=4
@@ -102896,6 +102909,10 @@ $S:12}
 A.aMQ.prototype={
 $0(){var s=this.a,r=A.X(s.d,t.hD)
 B.c.N(r,this.b)
+r.sort(function(a,b){var s=B.b.bl(a!=null&&a.d!=null?a.d:a!=null&&a.b!=null?a.b:""),r=B.b.bl(b!=null&&b.d!=null?b.d:b!=null&&b.b!=null?b.b:"")
+if(s<r)return-1
+if(s>r)return 1
+return 0})
 s.d=r},
 $S:0}
 A.aMR.prototype={
@@ -102974,6 +102991,20 @@ q=(q==null?s.b:q).bB(0.72)
 p=h.b
 o=h.a
 if(o==null)o=p
+var a3=h.d,a4=B.b.bl(a3==null?"":a3),a5="",a6="",a7="",a8=!1,a9=-1,b0=-1,b1=null
+if(a4.length!==0){p=a4
+a8=!0}
+a5=B.b.bl(p==null?"":p)
+a9=a5.indexOf("/")
+if(a9>0){a6=a5.substring(0,a9)
+a7=a5.substring(a9+1)
+if(a7.length===0)a7=a5
+if(b+1<i.length){b1=i[i.length-2-b]
+if(b1!=null){a4=B.b.bl(b1.d==null?b1.b:b1.d)
+b0=a4.indexOf("/")
+if(b0>0){if(a4.substring(0,b0)===a6)p="  "+a7
+else p=a6+" / "+a7}else p=a6+" / "+a7}else p=a6+" / "+a7}else p=a6+" / "+a7}else if(a9===0)p=a5.substring(1)
+try{v.G.fetch("/api/debug/ingest-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({stage:"render_queue_item",idx:b,display_from_rel:a8,group_key:a6,display:p,has_rel:a5.indexOf("/")>0})})}catch(a2){}
 n=s.e
 o=A.aTN(n==null?s.c:n,!1,p,o)
 n=this.c.ok
@@ -103772,6 +103803,16 @@ s.push(new A.Kb(p,r))}return s},
 P(a){var s
 this.pQ(a)
 s=A.bc(a)
+try{v.G.__friendeck_file_manager_state=this
+v.G.__friendeck_file_manager_get_current_path=function(){var a0=v.G.__friendeck_file_manager_state
+if(a0==null)return null
+if(a0.f==null)return null
+return B.b.bl(a0.f)}
+v.G.__friendeck_file_manager_refresh_current_dir=function(){var a0=v.G.__friendeck_file_manager_state,b
+if(a0==null)return
+b=a0.f
+if(b==null||B.b.bl(b).length===0)return
+a0.ey(B.b.bl(b))}}catch(a0){}
 return A.f0(!1,A.p2(new A.aEK(this,A.M(a).ax,s)),!1,B.a4,!0)},
 adq(){var s,r,q,p,o=this,n=null,m=o.c
 m.toString
@@ -105063,7 +105104,8 @@ $0(){this.a.d.l4(B.fw)
 return null},
 $S:0}
 A.pR.prototype={
-am(){return new A.LE(new A.j0(B.lg,$.ar()),A.u3(null,null))}}
+am(){var s=null
+return new A.LE(new A.j0(B.lg,$.ar()),A.u3(null,null),A.rD(!0,s,!0,!0,s,s,!1))}}
 A.LE.prototype={
 l(){var s,r=this,q=r.f
 if(q!=null)q.ba()
@@ -105072,6 +105114,9 @@ if(s!=null)r.a.c.t1(s)
 q=r.d
 q.aa$=$.ar()
 q.R$=0
+r=r.go
+if(r!=null)r.l()
+r=this
 r.e.l()
 r.aP()},
 HL(a){var s,r,q=this,p={},o=q.an5(a)
@@ -105107,9 +105152,31 @@ asl(){var s=this,r=s.f
 if(r!=null)r.ba()
 s.f=A.aSO(B.eN,new A.aLL(s))
 s.tL()},
-xx(){var s=0,r=A.r(t.H),q,p=2,o=[],n=[],m=this,l,k,j,i,h,g,f,e,d
+xx(){var s=0,r=A.r(t.H),q,p=2,o=[],n=[],m=this,l,k,j,i,h,g,f,e,d,a0
 var $async$xx=A.n(function(a,b){if(a===1){o.push(b)
-s=p}for(;;)switch(s){case 0:e=m.c
+s=p}for(;;)switch(s){case 0:a0=function(a1,a2){var a3,a4,a5,a6,a7,a8,a9,b1,b2,b3,b4,b5,b6
+if(m.c==null)return
+a3=v.G.document
+a4=a3!=null&&a3.activeElement!=null?a3.activeElement:null
+b1=a4!=null?a4.tagName:null
+b2=a4!=null&&a4.className!=null?""+a4.className:""
+b3=(b1==="TEXTAREA"||b1==="INPUT")&&B.b.m(b2,"flt-text-editing")
+b4=a4!=null&&a4.getAttribute!=null&&a4.getAttribute("contenteditable")==="true"
+b5=b3||b4
+a5=b1==="FLUTTER-VIEW"||b1==="BODY"||b1==null||!b5
+a6=!1
+if(a5&&a3!=null)try{a7=a3.querySelector("flt-text-editing-host textarea.flt-text-editing,flt-text-editing-host input.flt-text-editing,textarea.flt-text-editing,input.flt-text-editing,[contenteditable='true'],textarea,input")
+if(a7!=null&&typeof a7.focus=="function"){a7.focus()
+a6=!0}}catch(a9){}
+a7=m.go
+if(a7!=null)a7.jm()
+a8=a3!=null&&a3.activeElement!=null?a3.activeElement:null
+b6=a8!=null?a8.tagName:null
+a9=a8!=null&&a8.className!=null?""+a8.className:""
+b4=(b6==="TEXTAREA"||b6==="INPUT")&&B.b.m(a9,"flt-text-editing")||a8!=null&&a8.getAttribute!=null&&a8.getAttribute("contenteditable")==="true"
+try{v.G.fetch("/api/debug/ingest-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({stage:"terminal_focus_retain_try",phase:a1,attempt:a2,active_tag_before:b1,active_class_before:b2,active_is_editing_before:b5,active_tag_after:b6,active_class_after:a9,active_is_editing_after:b4,recapture_triggered:a5,recapture_dom_focus:a6})})}catch(c0){}
+if((!b4||b6==="FLUTTER-VIEW")&&a2<10&&m.c!=null)v.G.setTimeout(function(){a0(a1,a2+1)},60)}
+e=m.c
 e.toString
 l=A.bc(e)
 e=m.d
@@ -105118,11 +105185,20 @@ if(J.cO(k)===0){e=m.c
 e.toString
 A.bd(e,B.b.C(l.a.gH().toLowerCase(),"zh")?"\u8bf7\u8f93\u5165\u547d\u4ee4":"Please enter a command")
 s=1
+break}if(m.r){a0("command_skip_busy",0)
+s=1
 break}j=B.b.bl(m.as).length!==0
 g=m.f
 if(g!=null)g.ba()
 m.S(new A.aLI(m))
 e.l4(B.fw)
+a0("command_send_immediate",0)
+v.G.setTimeout(function(){a0("command_send_t0",0)},0)
+v.G.setTimeout(function(){a0("command_send_t80",0)},80)
+v.G.setTimeout(function(){a0("command_send_t180",0)},180)
+v.G.setTimeout(function(){a0("command_send_t320",0)},320)
+v.G.setTimeout(function(){a0("command_send_t600",0)},600)
+v.G.setTimeout(function(){a0("command_send_t900",0)},900)
 p=4
 s=7
 return A.l(m.a.c.w7(k),$async$xx)
@@ -105133,6 +105209,12 @@ break}m.S(new A.aLJ(m,i))
 if(j)m.HL("\n--------------------------------\n")
 m.HL("$ "+A.j(k)+"\n")
 m.asl()
+a0("command_post_start_immediate",0)
+v.G.setTimeout(function(){a0("command_post_start_t0",0)},0)
+v.G.setTimeout(function(){a0("command_post_start_t120",0)},120)
+v.G.setTimeout(function(){a0("command_post_start_t260",0)},260)
+v.G.setTimeout(function(){a0("command_post_start_t420",0)},420)
+v.G.setTimeout(function(){a0("command_post_start_t700",0)},700)
 n.push(6)
 s=5
 break
@@ -105142,12 +105224,21 @@ e=A.a8(d)
 if(e instanceof A.eh){h=e
 e=m.c
 if(e!=null)A.bd(e,h.a)}else{e=m.c
-if(e!=null)A.bd(e,B.b.C(l.a.gH().toLowerCase(),"zh")?"\u542f\u52a8\u7ec8\u7aef\u5931\u8d25":"Failed to start terminal")}n.push(6)
+if(e!=null)A.bd(e,B.b.C(l.a.gH().toLowerCase(),"zh")?"\u542f\u52a8\u7ec8\u7aef\u5931\u8d25":"Failed to start terminal")}
+a0("command_error_immediate",0)
+v.G.setTimeout(function(){a0("command_error_t80",0)},80)
+v.G.setTimeout(function(){a0("command_error_t220",0)},220)
+v.G.setTimeout(function(){a0("command_error_t500",0)},500)
+n.push(6)
 s=5
 break
 case 3:n=[2]
 case 5:p=2
-if(m.c!=null)m.S(new A.aLK(m))
+if(m.c!=null){m.S(new A.aLK(m))
+a0("command_finalize_t0",0)
+v.G.setTimeout(function(){a0("command_finalize_t120",0)},120)
+v.G.setTimeout(function(){a0("command_finalize_t360",0)},360)
+v.G.setTimeout(function(){a0("command_finalize_t720",0)},720)}
 s=n.pop()
 break
 case 6:case 1:return A.p(q,r)
@@ -105209,9 +105300,31 @@ case 2:return A.o(o.at(-1),r)}})
 return A.q($async$tL,r)},
 tV(a){return this.ars(a)},
 XX(){return this.tV(!1)},
-ars(a){var s=0,r=A.r(t.H),q,p=2,o=[],n=[],m=this,l,k,j,i,h,g,f,e,d,c
+ars(a){var s=0,r=A.r(t.H),q,p=2,o=[],n=[],m=this,l,k,j,i,h,g,f,e,d,c,b0
 var $async$tV=A.n(function(b,a0){if(b===1){o.push(a0)
-s=p}for(;;)switch(s){case 0:d=m.c
+s=p}for(;;)switch(s){case 0:b0=function(a1,a2){var a3,a4,a5,a6,a7,a8,a9,b1,b2,b3,b4,b5,b6
+if(!m.w||m.z==null||m.c==null)return
+a3=v.G.document
+a4=a3!=null&&a3.activeElement!=null?a3.activeElement:null
+b1=a4!=null?a4.tagName:null
+b2=a4!=null&&a4.className!=null?""+a4.className:""
+b3=(b1==="TEXTAREA"||b1==="INPUT")&&B.b.m(b2,"flt-text-editing")
+b4=a4!=null&&a4.getAttribute!=null&&a4.getAttribute("contenteditable")==="true"
+b5=b3||b4
+a5=b1==="FLUTTER-VIEW"||b1==="BODY"||b1==null||!b5
+a6=!1
+if(a5&&a3!=null)try{a7=a3.querySelector("flt-text-editing-host textarea.flt-text-editing,flt-text-editing-host input.flt-text-editing,textarea.flt-text-editing,input.flt-text-editing,[contenteditable='true'],textarea,input")
+if(a7!=null&&typeof a7.focus=="function"){a7.focus()
+a6=!0}}catch(a9){}
+a7=m.go
+if(a7!=null)a7.jm()
+a8=a3!=null&&a3.activeElement!=null?a3.activeElement:null
+b6=a8!=null?a8.tagName:null
+a9=a8!=null&&a8.className!=null?""+a8.className:""
+b4=(b6==="TEXTAREA"||b6==="INPUT")&&B.b.m(a9,"flt-text-editing")||a8!=null&&a8.getAttribute!=null&&a8.getAttribute("contenteditable")==="true"
+try{v.G.fetch("/api/debug/ingest-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({stage:"terminal_focus_retain_try",phase:a1,attempt:a2,active_tag_before:b1,active_class_before:b2,active_is_editing_before:b5,active_tag_after:b6,active_class_after:a9,active_is_editing_after:b4,recapture_triggered:a5,recapture_dom_focus:a6})})}catch(c0){}
+if((!b4||b6==="FLUTTER-VIEW")&&a2<10&&m.w&&m.z!=null&&m.c!=null)v.G.setTimeout(function(){b0(a1,a2+1)},60)}
+d=m.c
 d.toString
 l=A.bc(d)
 k=m.z
@@ -105224,12 +105337,27 @@ p=4
 h=m.a.c
 g=a?"":j
 f=!a
+if(f&&m.x){b0("send_skip_busy",0)
+s=1
+break}
 s=7
 return A.l(h.w_(a,f,k,g),$async$tV)
-case 7:if(f)d.l4(B.fw)
+case 7:if(f){d.l4(B.fw)
+b0("send_immediate",0)
+v.G.setTimeout(function(){b0("send_t0",0)},0)
+v.G.setTimeout(function(){b0("send_t80",0)},80)
+v.G.setTimeout(function(){b0("send_t180",0)},180)
+v.G.setTimeout(function(){b0("send_t320",0)},320)
+v.G.setTimeout(function(){b0("send_t600",0)},600)
+v.G.setTimeout(function(){b0("send_t900",0)},900)}
 s=8
 return A.l(m.tL(),$async$tV)
-case 8:n.push(6)
+case 8:if(f){b0("post_poll_immediate",0)
+v.G.setTimeout(function(){b0("post_poll_t0",0)},0)
+v.G.setTimeout(function(){b0("post_poll_t120",0)},120)
+v.G.setTimeout(function(){b0("post_poll_t260",0)},260)
+v.G.setTimeout(function(){b0("post_poll_t420",0)},420)
+v.G.setTimeout(function(){b0("post_poll_t700",0)},700)}n.push(6)
 s=5
 break
 case 4:p=3
@@ -105238,12 +105366,19 @@ d=A.a8(c)
 if(d instanceof A.eh){i=d
 d=m.c
 if(d!=null)A.bd(d,i.a)}else{d=m.c
-if(d!=null)A.bd(d,B.b.C(l.a.gH().toLowerCase(),"zh")?"\u53d1\u9001\u8f93\u5165\u5931\u8d25":"Failed to send input")}n.push(6)
+if(d!=null)A.bd(d,B.b.C(l.a.gH().toLowerCase(),"zh")?"\u53d1\u9001\u8f93\u5165\u5931\u8d25":"Failed to send input")}if(f){b0("error_immediate",0)
+v.G.setTimeout(function(){b0("error_t80",0)},80)
+v.G.setTimeout(function(){b0("error_t220",0)},220)
+v.G.setTimeout(function(){b0("error_t500",0)},500)}n.push(6)
 s=5
 break
 case 3:n=[2]
 case 5:p=2
-if(m.c!=null)m.S(new A.aLH(m))
+if(m.c!=null){m.S(new A.aLH(m))
+if(f){b0("finalize_t0",0)
+v.G.setTimeout(function(){b0("finalize_t120",0)},120)
+v.G.setTimeout(function(){b0("finalize_t360",0)},360)
+v.G.setTimeout(function(){b0("finalize_t720",0)},720)}}
 s=n.pop()
 break
 case 6:case 1:return A.p(q,r)
@@ -105311,13 +105446,13 @@ else{if(i.as.length===0){k=d.rx
 if(k==null)k=d.k3}else k=d.k3
 k=q.axf(k,"monospace")
 q=k}n=A.cW(A.dX(h,A.lT(new A.G6(A.a5(l,h,h,h,q,h,h),h),B.F,i.e,B.rU,B.ar),B.t,h,h,new A.bW(o,h,m,n,h,h,B.X),h,h,h,h,h,h,h,1/0),1)
-q=!i.r&&!i.x
+q=!i.x
 if(i.w)o=B.b.C(s.gH().toLowerCase(),g)?"\u7ec8\u7aef\u8f93\u5165":"Terminal input"
 else o=B.b.C(s.gH().toLowerCase(),g)?"\u547d\u4ee4":"Command"
 if(i.w)m=B.b.C(s.gH().toLowerCase(),g)?"\u8f93\u5165 sudo \u5bc6\u7801\u6216\u4ea4\u4e92\u5185\u5bb9":"Type sudo password or interactive input"
 else m=B.b.C(s.gH().toLowerCase(),g)?"\u4f8b\u5982\uff1als -la":"e.g. ls -la"
 l=t.p
-q=A.b([new A.ef(B.fK,h,h,p,h),B.cv,n,B.lb,A.us(!1,i.d,A.oT(h,h,h,h,h,h,h,h,!0,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,m,h,h,h,h,h,h,h,h,o,!0,!0,h,h,h,h,h,h,h,h,h,h,h,h,h,h),q,!1,h,h,h,3,1,h,new A.aLO(i),h,h,B.KB),B.cb],l)
+q=A.b([new A.ef(B.fK,h,h,p,h),B.cv,n,B.lb,A.us(!1,i.d,A.oT(h,h,h,h,h,h,h,h,!0,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,m,h,h,h,h,h,h,h,h,o,!0,!0,h,h,h,h,h,h,h,h,h,h,h,h,h,h),q,!1,i.go,h,h,3,1,h,new A.aLO(i),h,h,B.KB),B.cb],l)
 if(!i.w){p=i.r
 o=p?h:i.gase()
 n=p?B.i8:B.Wd

@@ -6,7 +6,7 @@
   const TAB_COUNT = 5;
   const HANDOFF_RETRY_MS = 120;
   const MAX_HANDOFF_ATTEMPTS = 40;
-  const SCRIPT_REV = "file-manager-drop-confirm-v1";
+  const SCRIPT_REV = "file-manager-drop-confirm-v3-clipboard-fix";
   const TOAST_ID = "fd-bridge-toast";
   const TOAST_MS = 3200;
 
@@ -14,6 +14,204 @@
   let pendingDropPayload = null;
   let handoffAttempts = 0;
   let handoffTimer = null;
+
+  function safeDecodeURIComponent(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function tryExtractPathFromUrlText(text) {
+    try {
+      const url = new URL(text, window.location && window.location.origin ? window.location.origin : undefined);
+      const value = url.searchParams ? url.searchParams.get("path") : null;
+      if (!value) return null;
+      return String(value);
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function normalizeDeckPath(input) {
+    let value = String(input || "").trim();
+    if (!value) return "";
+
+    // Strip wrapping quotes
+    if (
+      (value.length >= 2 && value.startsWith("\"") && value.endsWith("\"")) ||
+      (value.length >= 2 && value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1).trim();
+    }
+
+    // Convert file:// URIs to a normal path
+    if (/^file:\/\//i.test(value)) {
+      try {
+        const url = new URL(value);
+        const decodedPath = safeDecodeURIComponent(url.pathname) || url.pathname;
+        if (decodedPath) value = decodedPath;
+      } catch (_err) {}
+    }
+
+    // Convert Windows slashes and collapse duplicate separators.
+    value = value.replace(/\\/g, "/");
+    value = value.replace(/\/{2,}/g, "/");
+
+    // Add a leading slash for common absolute Deck paths if it was lost.
+    if (!value.startsWith("/") && /^(home|run|var|tmp|usr|etc)\//.test(value)) {
+      value = `/${value}`;
+    }
+
+    return value;
+  }
+
+  function normalizeClipboardTextForPaths(text) {
+    if (typeof text !== "string") return text;
+    const raw = text;
+    const trimmed = raw.trim();
+    if (!trimmed) return raw;
+
+    // If the app accidentally copies a download/preview URL, extract its `path` query param.
+    const extractedFromUrl = tryExtractPathFromUrlText(trimmed);
+    if (extractedFromUrl) {
+      const normalized = normalizeDeckPath(extractedFromUrl);
+      return normalized || raw;
+    }
+
+    // If the app copies an encoded path (e.g. %2Fhome%2Fdeck...), decode it.
+    if (/%2f/i.test(trimmed) || /%5c/i.test(trimmed)) {
+      const decoded = safeDecodeURIComponent(trimmed);
+      if (decoded && decoded !== trimmed) {
+        const normalized = normalizeDeckPath(decoded);
+        if (normalized) return normalized;
+      }
+    }
+
+    // Common UI prefixes.
+    const prefixes = ["Current path:", "Path:", "当前路径：", "当前路径:", "路径：", "路径:"];
+    for (const prefix of prefixes) {
+      if (!trimmed.startsWith(prefix)) continue;
+      const candidate = trimmed.slice(prefix.length).trim();
+      const normalized = normalizeDeckPath(candidate);
+      return normalized || raw;
+    }
+
+    // Dart Map/List `toString()` fallbacks like "{path: /home/deck/...}".
+    if (trimmed.startsWith("{") && trimmed.includes("path")) {
+      const match = trimmed.match(/path\s*[:=]\s*([^,}\]]+)/i);
+      if (match && match[1]) {
+        const normalized = normalizeDeckPath(match[1]);
+        return normalized || raw;
+      }
+    }
+
+    // If it's already a path, just normalize slashes.
+    if (trimmed.startsWith("/") || trimmed.startsWith("~") || trimmed.includes("/home/") || trimmed.includes("/run/")) {
+      const normalized = normalizeDeckPath(trimmed);
+      return normalized || raw;
+    }
+
+    return raw;
+  }
+
+  function copyTextViaExecCommand(text) {
+    const value = String(text || "");
+    if (!value) return false;
+    const doc = document;
+    if (!doc || !doc.body) return false;
+
+    const textarea = doc.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "-9999px";
+    textarea.style.left = "-9999px";
+    textarea.style.opacity = "0";
+    doc.body.appendChild(textarea);
+
+    let ok = false;
+    try {
+      textarea.focus();
+      textarea.select();
+      try {
+        textarea.setSelectionRange(0, textarea.value.length);
+      } catch (_err) {}
+      ok = doc.execCommand && doc.execCommand("copy");
+    } catch (_err) {
+      ok = false;
+    } finally {
+      doc.body.removeChild(textarea);
+    }
+    return !!ok;
+  }
+
+  function installClipboardWriteTextShim() {
+    const nav = window && window.navigator ? window.navigator : null;
+    if (!nav) return;
+
+    let clipboard = nav.clipboard;
+    if (!clipboard || typeof clipboard.writeText !== "function") {
+      const polyfill = {
+        writeText: (text) =>
+          new Promise((resolve, reject) => {
+            const normalized = normalizeClipboardTextForPaths(String(text || ""));
+            if (copyTextViaExecCommand(normalized)) {
+              resolve();
+              return;
+            }
+            reject(new Error("Clipboard writeText polyfill failed"));
+          }),
+      };
+      try {
+        Object.defineProperty(nav, "clipboard", { value: polyfill, configurable: true });
+        clipboard = nav.clipboard;
+      } catch (_err) {
+        try {
+          nav.clipboard = polyfill;
+          clipboard = nav.clipboard;
+        } catch (_err2) {
+          return;
+        }
+      }
+    }
+
+    if (!clipboard || typeof clipboard.writeText !== "function") return;
+    if (clipboard.__friendeck_write_text_patched) return;
+
+    const originalWriteText = clipboard.writeText.bind(clipboard);
+    const patchedWriteText = (text) => {
+      const normalized = normalizeClipboardTextForPaths(String(text || ""));
+      try {
+        const result = originalWriteText(normalized);
+        if (result && typeof result.then === "function") {
+          return result.catch((_err) => {
+            if (copyTextViaExecCommand(normalized)) return;
+            throw _err;
+          });
+        }
+        return Promise.resolve();
+      } catch (err) {
+        if (copyTextViaExecCommand(normalized)) return Promise.resolve();
+        return Promise.reject(err);
+      }
+    };
+
+    try {
+      clipboard.writeText = patchedWriteText;
+      clipboard.__friendeck_write_text_patched = true;
+    } catch (_err) {
+      try {
+        Object.defineProperty(clipboard, "writeText", {
+          value: patchedWriteText,
+          configurable: true,
+          writable: true,
+        });
+        clipboard.__friendeck_write_text_patched = true;
+      } catch (_err2) {}
+    }
+  }
 
   function normalizeText(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
@@ -53,6 +251,66 @@
     window.setTimeout(() => {
       if (toast.parentNode) toast.parentNode.removeChild(toast);
     }, TOAST_MS);
+  }
+
+  const INTERRUPT_BTN_LABELS = ["中断", "Ctrl+C"];
+  const INTERRUPT_HIDE_STYLE_ID = "fd-hide-terminal-interrupt-style";
+  let interruptHiderInstalled = false;
+  let interruptHideScheduled = false;
+
+  function installInterruptButtonHideCss() {
+    try {
+      if (!document || !document.head) return;
+      if (document.getElementById(INTERRUPT_HIDE_STYLE_ID)) return;
+      const style = document.createElement("style");
+      style.id = INTERRUPT_HIDE_STYLE_ID;
+      const selectors = [];
+      for (const label of INTERRUPT_BTN_LABELS) {
+        selectors.push(`button[aria-label="${label}"]`);
+        selectors.push(`button[title="${label}"]`);
+        selectors.push(`[role="button"][aria-label="${label}"]`);
+        selectors.push(`[role="button"][title="${label}"]`);
+      }
+      style.textContent = `${selectors.join(",")} { display: none !important; }`;
+      document.head.appendChild(style);
+    } catch (_err) {}
+  }
+
+  function hideInterruptButtonsInDom() {
+    try {
+      const nodes = document.querySelectorAll("button,[role='button']");
+      for (const node of nodes) {
+        if (!(node instanceof Element)) continue;
+        const text = normalizeText(node.innerText || node.textContent || "");
+        const aria = normalizeText(node.getAttribute("aria-label") || "");
+        const title = normalizeText(node.getAttribute("title") || "");
+        if (!INTERRUPT_BTN_LABELS.includes(text) && !INTERRUPT_BTN_LABELS.includes(aria) && !INTERRUPT_BTN_LABELS.includes(title)) {
+          continue;
+        }
+        node.style.display = "none";
+        node.setAttribute("data-friendeck-hidden", "terminal-interrupt");
+      }
+    } catch (_err) {}
+  }
+
+  function scheduleHideInterruptButtons() {
+    if (interruptHideScheduled) return;
+    interruptHideScheduled = true;
+    window.setTimeout(() => {
+      interruptHideScheduled = false;
+      hideInterruptButtonsInDom();
+    }, 120);
+  }
+
+  function installInterruptButtonHider() {
+    if (interruptHiderInstalled) return;
+    interruptHiderInstalled = true;
+    installInterruptButtonHideCss();
+    scheduleHideInterruptButtons();
+    try {
+      const observer = new MutationObserver(() => scheduleHideInterruptButtons());
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    } catch (_err) {}
   }
 
   function emitDebug(stage, payload) {
@@ -917,6 +1175,9 @@
   }
 
   function init() {
+    installClipboardWriteTextShim();
+    installInterruptButtonHider();
+
     let entryApiSupported = false;
     let handleApiSupported = false;
     try {

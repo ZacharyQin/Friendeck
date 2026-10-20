@@ -156,6 +156,66 @@ _terminal_sessions_lock = threading.Lock()
 _game_art_cache_lock = threading.Lock()
 _game_art_cache = {}
 _GAME_ART_CACHE_TTL_SECONDS = 45.0
+_ACTIVE_UPLOAD_SESSION_GRACE_SECONDS = 30.0
+
+
+def _inc_active_upload_requests(plugin):
+    count = int(getattr(plugin, "_active_upload_requests", 0) or 0)
+    setattr(plugin, "_active_upload_requests", count + 1)
+
+
+def _dec_active_upload_requests(plugin):
+    count = int(getattr(plugin, "_active_upload_requests", 0) or 0)
+    if count <= 1:
+        setattr(plugin, "_active_upload_requests", 0)
+    else:
+        setattr(plugin, "_active_upload_requests", count - 1)
+
+
+def has_active_transfer_or_terminal_sessions(plugin, now=None):
+    current = time.time() if now is None else float(now)
+
+    active_upload_requests = int(getattr(plugin, "_active_upload_requests", 0) or 0)
+    if active_upload_requests > 0:
+        return True, "active_upload_request"
+
+    upload_sessions = getattr(plugin, "_upload_sessions", None)
+    if isinstance(upload_sessions, dict) and upload_sessions:
+        try:
+            snapshots = list(upload_sessions.values())
+        except RuntimeError:
+            # If the dict is being mutated concurrently, treat as active.
+            return True, "upload_sessions_mutating"
+
+        for session in snapshots:
+            if not isinstance(session, dict):
+                continue
+            total_chunks = int(session.get("total_chunks") or 0)
+            received = session.get("received")
+            received_count = len(received) if hasattr(received, "__len__") else 0
+            if total_chunks > 0 and received_count >= total_chunks:
+                continue
+            last_update = float(session.get("last_update") or 0.0)
+            if last_update <= 0:
+                return True, "upload_session_unknown_age"
+            if current - last_update <= _ACTIVE_UPLOAD_SESSION_GRACE_SECONDS:
+                return True, "upload_session_recent"
+
+    with _terminal_sessions_lock:
+        terminal_sessions = list(_terminal_sessions.values())
+    for session in terminal_sessions:
+        if not isinstance(session, dict):
+            continue
+        process = session.get("process")
+        if process is None:
+            return True, "terminal_session_unknown_process"
+        try:
+            if process.poll() is None:
+                return True, "terminal_session_running"
+        except Exception:
+            return True, "terminal_session_poll_error"
+
+    return False, ""
 
 
 def _normalize_hash_algo(algo):
@@ -6836,6 +6896,7 @@ async def handle_upload(request, plugin):
         plugin: Plugin instance to access downloads_dir and text_file_path
     """
     sleep_block_acquired = False
+    _inc_active_upload_requests(plugin)
     try:
         # Parse multipart form data
         reader = await request.multipart()
@@ -7083,11 +7144,13 @@ async def handle_upload(request, plugin):
     finally:
         if sleep_block_acquired:
             _release_transfer_sleep_block()
+        _dec_active_upload_requests(plugin)
 
 
 async def handle_upload_chunk(request, plugin):
     """Handle chunked file upload request"""
     sleep_block_acquired = False
+    _inc_active_upload_requests(plugin)
     try:
         reader = await request.multipart()
         field = await reader.next()
@@ -7411,6 +7474,7 @@ async def handle_upload_chunk(request, plugin):
     finally:
         if sleep_block_acquired:
             _release_transfer_sleep_block()
+        _dec_active_upload_requests(plugin)
 
 
 
